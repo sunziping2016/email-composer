@@ -1,0 +1,5 @@
+/.idea/
+/.direnv/
+__pycache__/
+config.json
+contacts.csv
