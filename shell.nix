@@ -9,9 +9,11 @@ let
     python-frontmatter
   ];
 in
-pkgs.mkShell {
+with pkgs;
+mkShell {
   packages = [
-    (pkgs.python3.withPackages
+    pipreqs
+    (python3.withPackages
       python-packages)
   ];
 }
