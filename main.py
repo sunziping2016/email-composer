@@ -2,26 +2,31 @@
 import argparse
 import base64
 import csv
+import glob
 import io
 import json
-import os
 import smtplib
+import sys
+from tkinter.messagebox import NO
 import uuid
 from email.headerregistry import Address
 from email.message import EmailMessage
-from typing import List
+from typing import List, Optional
 
+import frontmatter
+import jinja2
+import pandas as pd
 import qrcode
 
 
-def generate_clients(clients: List[uuid.UUID], contacts) -> str:
-    clients_config = ',\n'.join([f'''\
+def generate_clients(contacts) -> str:
+    clients_config = ',\n'.join(contacts.apply(lambda contact: f'''\
 {{
   "email": "{contact['email']}",
-  "id": "{client}",
+  "id": "{contact['uuid']}",
   "level": 0,
   "alterId": 4
-}}''' for client, contact in zip(clients, contacts)])
+}}''', axis=1))
     return f"[{clients_config}]"
 
 
@@ -40,68 +45,57 @@ def load_config(filename: str):
         return json.load(f)
 
 
-def load_contacts(filename: str):
-    with open(filename) as f:
-        iterator = iter(csv.reader(f))
-        header = next(iterator)
-        return [dict(zip(header, row)) for row in iterator]
+def load_contacts(filename: str, data: Optional[str] = None):
+    contacts = pd.read_csv(filename)
+    if data is not None:
+        for extra in glob.iglob(f'{data}/**/*.csv', recursive=True):
+            contacts = pd.merge(contacts, pd.read_csv(
+                extra), on='email', how='left')
+    return contacts
 
 
 def run_init(args: argparse.Namespace) -> None:
     config = load_config(args.config)
     contacts = load_contacts(args.contacts)
     namespace = uuid.UUID(config['namespace'])
-    header = list(contacts[0].keys())
-    clients: List[uuid.UUID] = []
-    for contact in contacts:
-        id_ = generate_uuid(namespace, contact['email'])
-        contact['uuid'] = str(id_)
-        clients.append(id_)
+    contacts['uuid'] = contacts['email'].map(
+        lambda x: generate_uuid(namespace, x))
     if args.write_contacts:
-        with open(args.contacts, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(header)
-            for contact in contacts:
-                writer.writerow([contact[item] for item in header])
-    clients_config = generate_clients(clients, contacts)
+        contacts.to_csv(args.contacts, index=False)
+    clients_config = generate_clients(contacts)
     print(clients_config)
 
 
-def run_email(args: argparse.Namespace) -> None:
+def run_send(args: argparse.Namespace) -> None:
     config = load_config(args.config)
-    contacts = load_contacts(args.contacts)
+    contacts = load_contacts(args.contacts, args.data)
     if args.filter_email:
-        contacts = [
-            contact for contact in contacts if contact['email'] in args.filter_email]
+        contacts = contacts[contacts['email'].isin(args.filter_email)]
     if args.filter_tag:
-        contacts = [
-            contact for contact in contacts if contact['tag'] in args.filter_tag]
+        contacts = contacts[contacts['tag'].isin(args.filter_tag)]
     email = config['smtp']
-    with open(os.path.join('templates', args.template, 'subject.txt')) as f:
-        subject = f.read().strip()
-    with open(os.path.join('templates', args.template, 'template.txt')) as f:
-        txt_template = f.read()
-    with open(os.path.join('templates', args.template, 'template.html')) as f:
-        html_template = f.read()
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader(
+        args.templates), autoescape=jinja2.select_autoescape())
+    txt_template = env.get_template(f'{args.template}/template.txt')
+    html_template = env.get_template(f'{args.template}/template.html')
     msgs: List[EmailMessage] = []
-    for contact in contacts:
-        print(contact['email'])
-    reply = input('Resume (y/N): ')
-    if reply.lower() != 'y':
-        return
-    for contact in contacts:
+    for _, contact in contacts.iterrows():
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+            print(contact)
+        reply = input('Resume (y/N): ')
+        if reply.lower() != 'y':
+            sys.exit(1)
+        txt = frontmatter.loads(txt_template.render(contact.to_dict()))
         msg = EmailMessage()
         msg.set_charset('utf-8')
-        msg['Subject'] = subject
+        msg['Subject'] = txt['subject']
         msg['From'] = Address(email['name'], *email['user'].split('@'))
         msg['To'] = (Address(contact['english_name'],
                      *contact['email'].split('@')),)
-        params = {
-            **contact,
-        }
-        msg.set_content(txt_template.format(**params))
-        msg.add_alternative(html_template.format(**params), subtype='html')
-        if args.attach:
+        msg.set_content(str(txt))
+        msg.add_alternative(html_template.render(
+            contact.to_dict()), subtype='html')
+        if txt.get('attach_vmess', False):
             vmess = generate_vmess_url(config, contact['uuid'])
             qr_img = qrcode.make(vmess)
             qr_img_bytes_io = io.BytesIO()
@@ -112,6 +106,7 @@ def run_email(args: argparse.Namespace) -> None:
             msg.add_attachment(qr_img_bytes, maintype='image',
                                subtype='png', filename='vmess.png')
         msgs.append(msg)
+        print()
     with smtplib.SMTP_SSL(email['server'], email.get('port', 465)) as smtp:
         smtp.login(email['user'], email['password'])
         for msg in msgs:
@@ -124,6 +119,10 @@ def main():
                              default='config.json', help='configuration file')
     main_parser.add_argument('--contacts', type=str,
                              default='contacts.csv', help='contacts file')
+    main_parser.add_argument('--templates', type=str,
+                             default='templates', help='directory to templates')
+    main_parser.add_argument('--data', type=str,
+                             default='data', help='additional data')
     sub_parsers = main_parser.add_subparsers(
         title='command', help='available sub-commands')
     # init
@@ -131,18 +130,17 @@ def main():
     parser_init.add_argument(
         '--write_contacts', action='store_true', help='write back IDs to contacts file')
     parser_init.set_defaults(func=run_init)
-    # notify config
-    parser_email = sub_parsers.add_parser(
-        'send', help='notify users of their v2ray config')
+    # send
+    parser_email = sub_parsers.add_parser('send', help='send emails')
     parser_email.add_argument(
         'template', help='the template used to compose email')
     parser_email.add_argument(
         '--filter_email', action='append', default=[], help='filter emails')
     parser_email.add_argument(
         '--filter_tag', action='append', default=[], help='filter tags')
-    parser_email.add_argument(
-        '--attach', action='store_true', help='send attachment')
-    parser_email.set_defaults(func=run_email)
+    # parser_email.add_argument(
+    #     '--attach', action='store_true', help='send attachment')
+    parser_email.set_defaults(func=run_send)
 
     args = main_parser.parse_args()
     if 'func' in args:

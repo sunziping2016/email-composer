@@ -1,7 +1,17 @@
 { pkgs ? import <nixpkgs> { } }:
-with pkgs;
-mkShell {
+let
+  python-packages = p: with p; [
+    pandas
+    tkinter
+    qrcode
+    jinja2
+    autopep8
+    python-frontmatter
+  ];
+in
+pkgs.mkShell {
   packages = [
-    python3
+    (pkgs.python3.withPackages
+      python-packages)
   ];
 }

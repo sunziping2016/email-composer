@@ -3,15 +3,22 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>山楂片的代理续费</title>
+    <title>2023年2月山楂片的代理续费</title>
 </head>
 
 <body>
-    <p>{name}：</p>
-    <p>您好！您当前的账户余额为：<code style="font-weight: bold">{balance}</code> 元。如果账户余额大于等于10元，我将自动为您续费下月服务。</p>
-    <p>本月初使用的上游供应商极不稳定，造成多次网络断联。于是在12月23日，我将代理切换到了新的供应商。未来的网络应当更加稳定。所有人的配置无需更新，服务器也仍位于香港。</p>
-    <p style="opacity: .5">如有问题可以直接回复本邮件或微信私聊获取帮助。</p>
+    <p>{{ name }}：</p>
+    <p>您好！您当前的账户余额为：<code style="font-weight: bold">{{ balance }}</code>元。月费用为10.00元。{% if balance >= 10 %}<span
+            style="font-weight: bold">余额充足</span>，我们将在2月6日自动续费。{% else %}<span
+            style="font-weight: bold">余额不足</span>，请在2月6日前充值。{% endif %}</p>
+    <p>您上月流量使用情况为：</p>
+    <ul>
+        <li>上传{{ up_traffic | filesizeformat(True) }} ，</li>
+        <li>下载{{ down_traffic | filesizeformat(True) }} ，</li>
+        <li>总计{{ total_traffic | filesizeformat(True) }} 。</li>
+    </ul>
+    <p>附件中包含了您的上网配置，配置没有发生变更，请妥善保存。</p>
+    <p style="color: gray">如有问题可以直接回复本邮件或微信私聊获取帮助。</p>
 </body>
 
 </html>
-

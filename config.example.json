@@ -1,10 +1,9 @@
 {
-  "server": "example.com",
+  "namespace": "fe9bb691-1071-45af-9689-35f64e20ffeb",
   "v2": {
-    "host": "example.config",
+    "host": "example.com",
     "id": "fe9bb691-1071-45af-9689-35f64e20ffeb"
   },
-  "namespace": "fe9bb691-1071-45af-9689-35f64e20ffeb",
   "smtp": {
     "server": "smtp.example.com",
     "port": 465,
