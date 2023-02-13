@@ -1,0 +1,12 @@
+{% macro vmess_url(server, uuid) -%}
+{{ "vmess://%s" | format(server | update({ 'id': uuid }) | to_json | to_base64) }}
+{%- endmacro %}
+{% macro vmess_txt(server, uuid) -%}
+{{ vmess_url(server, uuid) | dump_txt }}
+{%- endmacro %}
+{% macro vmess_qr(server, uuid) -%}
+{{ vmess_url(server, uuid) | dump_qr }}
+{%- endmacro %}
+{% macro uuid_for(email) -%}
+{{ email | uuid5(namespace) }}
+{%- endmacro %}

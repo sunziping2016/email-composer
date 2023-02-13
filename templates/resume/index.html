@@ -8,8 +8,8 @@
 
 <body>
     <p>{{ name }}：</p>
-    <p>您好！您当前的账户余额为：<code style="font-weight: bold">{{ balance }}</code>元。月费用为10.00元。{% if balance >= 10 %}<span
-            style="font-weight: bold">余额充足</span>，我们将在2月6日自动续费。{% else %}<span
+    <p>您好！您当前的账户余额为：<code style="font-weight: bold">{{ '%.2f' | format(balance) }}</code>元。月费用为10.00元。{% if balance >=
+        10 %}<span style="font-weight: bold">余额充足</span>，我们将在2月6日自动续费。{% else %}<span
             style="font-weight: bold">余额不足</span>，请在2月6日前充值。{% endif %}</p>
     <p>您上月流量使用情况为：</p>
     <ul>

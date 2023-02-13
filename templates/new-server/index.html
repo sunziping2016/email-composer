@@ -1,0 +1,25 @@
+{% import 'templates/macros.txt' as macros -%}
+{% set uuid = macros.uuid_for(email) -%}
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <title>山楂片的代理新增通知</title>
+</head>
+
+<body>
+    <p>{{ name }}：</p>
+    <p>您好！由于一些服务无法从香港访问，我们又添置了一台在美国的服务器。旧的香港服务器域名前缀为hk，新的美国服务器域名前缀为us。通常美国服务器延时较之于香港的高很多。</p>
+    <p>附件里面包含了可以扫面的二维码。而两台服务器链接如下。</p>
+{%- for server in servers %}
+    <div style="margin-y: 1em">
+      <div style="font-weight: bold">{{ server.host }}</div>
+      <pre style="margin-top: 0"><code>{{ macros.vmess_url(server, uuid) }}</code></pre>
+    </div>
+{%- endfor %}
+    <p>二维码和链接均可用于导入配置。</p>
+    <p style="color: gray">如有问题可以直接回复本邮件或微信私聊获取帮助。</p>
+</body>
+
+</html>

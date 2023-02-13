@@ -1,6 +1,16 @@
+{% import 'templates/macros.txt' as macros %}
+{% set uuid = macros.uuid_for(email) %}
 ---
 subject: 2023年2月山楂片的代理续费
-attach_vmess: true
+alternative:
+  html: templates/resume/index.html
+attach:
+{%- for server in servers %}
+  - name: {{ server.host }}.txt
+    content: {{ macros.vmess_txt(server, uuid) }}
+  - name: {{ server.host }}.png
+    content: {{ macros.vmess_qr(server, uuid) }}
+{%- endfor %}
 ---
 {{ name }}：
 
