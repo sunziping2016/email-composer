@@ -4,6 +4,6 @@
   "email": "{{ contact.email }}",
   "id": "{{ macros.uuid_for(contact.email) }}",
   "level": 0,
-  "alterId": 4,
+  "alterId": 4
 }{% if not loop.last %},{% endif %}
 {% endfor %}
